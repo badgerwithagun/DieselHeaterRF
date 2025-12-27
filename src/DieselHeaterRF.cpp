@@ -14,8 +14,8 @@
  * 
  */
 
-#include <Arduino.h>
-#include <SPI.h>
+// #include <Arduino.h>
+// #include <SPI.h>
 #include "DieselHeaterRF.h"
 
 void DieselHeaterRF::begin() {
@@ -26,13 +26,13 @@ void DieselHeaterRF::begin(uint32_t heaterAddr) {
 
   _heaterAddr = heaterAddr;
 
-  pinMode(_pinSck, OUTPUT);
-  pinMode(_pinMosi, OUTPUT);
-  pinMode(_pinMiso, INPUT);
-  pinMode(_pinSs, OUTPUT);
-  pinMode(_pinGdo2, INPUT);
-  
-  SPI.begin(_pinSck, _pinMiso, _pinMosi, _pinSs);
+  pinModePi(_pinSck,  PI_OUTPUT);
+  pinModePi(_pinMosi, PI_OUTPUT);
+  pinModePi(_pinMiso, PI_INPUT);
+  pinModePi(_pinSs,   PI_OUTPUT);
+  pinModePi(_pinGdo2, PI_INPUT);
+
+  // No SPI.begin on Pi; pi_spi.h sets up /dev/spidev0.0 globally.
 
   delay(100);
 
@@ -129,10 +129,10 @@ uint32_t DieselHeaterRF::findAddress(uint16_t timeout) {
 
 uint32_t DieselHeaterRF::parseAddress(char *buf) {
   uint32_t address = 0;
-  address |= (buf[2] << 24);
-  address |= (buf[3] << 16);
-  address |= (buf[4] << 8);
-  address |= buf[5];
+  address |= (uint32_t(buf[2]) << 24);
+  address |= (uint32_t(buf[3]) << 16);
+  address |= (uint32_t(buf[4]) << 8);
+  address |= uint8_t(buf[5]);
   return address;
 }
 
@@ -149,40 +149,32 @@ bool DieselHeaterRF::receivePacket(char *bytes, uint16_t timeout) {
     if (millis() - t > timeout) return false;
 
     // Wait for GDO2 assertion
-    while (!digitalRead(_pinGdo2)) { if (millis() - t > timeout) return false; }
-  
+    while (!digitalReadPi(_pinGdo2)) {
+      if (millis() - t > timeout) return false;
+    }
+
     // Get number of bytes in RX FIFO
     rxLen = writeReg(0xFB, 0xFF);
-
+    
     if (rxLen == 24) break;
 
     // Flush RX FIFO
     rxFlush();
     rxEnable();
-
+    
   }
 
   // Read RX FIFO
-  rx(rxLen, bytes); 
-
-  /*
-  Serial.printf("Received %d bytes\n", rxLen);
-  for (int i = 0; i < rxLen; i++) {
-     Serial.print(rx[i], HEX);
-     Serial.print(" ");     
-  }
-  Serial.println();
-  */
-  
+  rx(rxLen, bytes);
   rxFlush();
 
   uint16_t crc = crc16_2(bytes, 19);
-  if (crc == (bytes[19] << 8) + bytes[20]) {
+  if (crc == (uint16_t(bytes[19]) << 8) + uint8_t(bytes[20])) {
     return true;
   }
 
   return false;
-
+  
 }
 
 void DieselHeaterRF::initRadio() {
@@ -238,8 +230,8 @@ void DieselHeaterRF::initRadio() {
   writeStrobe(0x36); // SIDLE  
   writeStrobe(0x3A); // SFRX  
 
-  delay(136);  
- 
+  delay(136);
+  
 }
 
 void DieselHeaterRF::txBurst(uint8_t len, char *bytes) {
@@ -256,14 +248,14 @@ void DieselHeaterRF::txFlush() {
 }
 
 void DieselHeaterRF::rx(uint8_t len, char *bytes) {
-  for (int i = 0; i < len; i++) {
+  for (int i = 0; i < (int)len; i++) {
     bytes[i] = writeReg(0xBF, 0xFF);
   }
 }
 
 void DieselHeaterRF::rxFlush() {
-  writeStrobe(0x36); // SIDLE  
-  writeReg(0xBF, 0xFF); // Dummy read to de-assert GDO2
+  writeStrobe(0x36); // SIDLE
+  (void)writeReg(0xBF, 0xFF); // Dummy read to de-asset GDO2
   writeStrobe(0x3A); // SFRX
   delay(16);
 }
@@ -274,34 +266,34 @@ void DieselHeaterRF::rxEnable() {
 
 uint8_t DieselHeaterRF::writeReg(uint8_t addr, uint8_t val) {
   spiStart();
-  SPI.transfer(addr);
-  uint8_t tmp = SPI.transfer(val); 
-  spiEnd();  
+  spiTransfer(addr);
+  uint8_t tmp = spiTransfer(val);
+  spiEnd();
   return tmp;
 }
 
 void DieselHeaterRF::writeBurst(uint8_t addr, uint8_t len, char *bytes) {
   spiStart();
-  SPI.transfer(addr);
-  for (int i = 0; i < len; i++) {
-    SPI.transfer(bytes[i]);
+  spiTransfer(addr);
+  for (int i = 0; i < (int)len; i++) {
+    spiTransfer(uint8_t(bytes[i]));
   }
   spiEnd();
 }
 
 void DieselHeaterRF::writeStrobe(uint8_t addr) {
   spiStart();
-  SPI.transfer(addr);
+  spiTransfer(addr);
   spiEnd();
 }
 
 void DieselHeaterRF::spiStart() {
-  digitalWrite(_pinSs, LOW);
-  while(digitalRead(_pinMiso));  
+  digitalWritePi(_pinSs, PI_LOW);
+  while (digitalReadPi(_pinMiso)) { /* wait until MISO goes low */ }
 }
 
 void DieselHeaterRF::spiEnd() {
-  digitalWrite(_pinSs, HIGH); 
+  digitalWritePi(_pinSs, PI_HIGH);
 }
 
 /*
@@ -312,12 +304,12 @@ uint16_t DieselHeaterRF::crc16_2(char *buf, int len) {
   uint16_t crc = 0xFFFF;
 
   for (int pos = 0; pos < len; pos++) {
-    crc ^= (byte)buf[pos];
-    for (int i = 8; i != 0; i--) {    
-      if ((crc & 0x0001) != 0) {      
-        crc >>= 1;                    
+    crc ^= (uint8_t)buf[pos];
+    for (int i = 8; i != 0; i--) {
+      if ((crc & 0x0001) != 0) {
+        crc >>= 1;
         crc ^= 0xA001;
-      } else {                    
+      } else {
         crc >>= 1;
       }
     }
