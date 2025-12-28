@@ -47,11 +47,11 @@ All features of the physical remote are available through the library.
 #### Pairing mode
 * Find the heater address
 
-### Build instructions
+### Development
 
 ```
 sudo apt-get update
-sudo apt-get install g++-aarch64-linux-gnu cmake ninja-build
+sudo apt-get install g++-aarch64-linux-gnu cmake ninja-build libmosquitto-dev
 ```
 
 Install VS Code extensions:
@@ -63,22 +63,36 @@ In VS Code:
     Use CMake Tools “Configure” → generates build-rpi for Pi.
     Use “Build” → produces build-rpi/diesel_heater.
 
-On the Pi 4:
+### Building
+On the pi:
+```
+docker build -t diesel-heater-rf .
+```
+Or from another box:
+```
+sudo apt-get update
+sudo apt-get install qemu-user-static
+docker run --rm --privileged \
+  tonistiigi/binfmt --install all
+docker buildx create --name multiarch-builder --use
+docker buildx inspect --bootstrap
+docker buildx build \
+  --platform linux/arm64 \
+  -t youruser/diesel-heater-rf:latest \
+  . \
+  --push
+```
 
-    Enable SPI: sudo raspi-config → Interface Options → SPI → Enable.
-
-Copy binary from PC:
-
-bash
-scp build-rpi/diesel_heater pi@<pi-ip>:/home/pi/
-
-Run:
-
-        bash
-        chmod +x diesel_heater
-        ./diesel_heater
-
-This keeps DieselHeaterRF’s protocol, CRC and CC1101 register setup exactly as in the Arduino version while making it build and run on a Pi 4 with a minimal amount of new glue code.
-
-​
-
+### Running
+```
+mkdir ./data
+docker run -d \
+  --name diesel-heater-rf \
+  --restart unless-stopped \
+  --device /dev/spidev0.0 \
+  --privileged \
+  -e MQTT_HOST=192.168.180.30 \
+  -e MQTT_PORT=1883 \
+  -v ./data:/data \
+  diesel-heater-rf
+```

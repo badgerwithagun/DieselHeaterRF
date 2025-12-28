@@ -16,7 +16,9 @@ add_executable(diesel_heater
     src/DieselHeaterRF.cpp
 )
 
-# Link against wiringPi on the Pi. [web:64]
-# target_link_libraries(diesel_heater
-#     wiringPi
-# )
+target_link_libraries(diesel_heater
+    mosquitto
+)
+
+install(TARGETS diesel_heater
+        RUNTIME DESTINATION /usr/local/bin)
