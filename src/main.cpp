@@ -70,6 +70,65 @@ static const std::string DISC_HSTATE  = "homeassistant/sensor/diesel_heater/stat
 static const std::string DISC_HTEXT   = "homeassistant/sensor/diesel_heater/state_text/config";
 static const std::string DISC_RSSI    = "homeassistant/sensor/diesel_heater/rssi/config";
 
+// ---- CC1101 SPI sanity checks ----
+
+uint8_t cc1101_read_reg(uint8_t addr) {
+    // Single-byte read: 0x80 | addr [web:87]
+    uint8_t header = 0x80 | (addr & 0x3F);
+
+    // Use the same CSn and MISO pins as DieselHeaterRF
+    digitalWritePi(HEATER_SS_PIN, PI_LOW);      // CSn low
+    // Optional: wait for MISO to go low to indicate ready
+    // while (digitalReadPi(HEATER_MISO_PIN)) {}
+
+    uint8_t val;
+    (void)g_spi.transfer(header);
+    val = g_spi.transfer(0x00);
+
+    digitalWritePi(HEATER_SS_PIN, PI_HIGH);     // CSn high
+
+    return val;
+}
+
+void cc1101_sres() {
+    // SRES strobe: 0x30 [web:87]
+    digitalWritePi(HEATER_SS_PIN, PI_LOW);
+    g_spi.transfer(0x30);
+    digitalWritePi(HEATER_SS_PIN, PI_HIGH);
+    // Wait a bit for reset to complete
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+}
+
+bool cc1101_startup_check() {
+    // Ensure CS and MISO directions are set (matches your DieselHeaterRF pins)
+    pinModePi(HEATER_SS_PIN,   PI_OUTPUT);
+    pinModePi(HEATER_MISO_PIN, PI_INPUT);
+
+    digitalWritePi(HEATER_SS_PIN, PI_HIGH);
+
+    try {
+        cc1101_sres();
+
+        uint8_t partnum = cc1101_read_reg(0x30);  // PARTNUM [web:87]
+        uint8_t version = cc1101_read_reg(0x31);  // VERSION [web:87]
+
+        std::cout << "CC1101 PARTNUM=0x" << std::hex << int(partnum)
+                  << " VERSION=0x" << int(version) << std::dec << "\n";
+
+        // Very rough sanity: reject all-0xFF or all-0x00
+        if ((partnum == 0xFF && version == 0xFF) ||
+            (partnum == 0x00 && version == 0x00)) {
+            std::cerr << "CC1101 SPI check failed (got PARTNUM="
+                      << int(partnum) << " VERSION=" << int(version) << ")\n";
+            return false;
+        }
+        return true;
+    } catch (const std::exception &e) {
+        std::cerr << "CC1101 SPI error: " << e.what() << "\n";
+        return false;
+    }
+}
+
 std::string get_env_or(const char *name, const char *fallback) {
     const char *v = std::getenv(name);
     if (v && *v) return std::string(v);
@@ -376,6 +435,12 @@ void handle_signal(int) {
 int main() {
     std::signal(SIGINT, handle_signal);
     std::signal(SIGTERM, handle_signal);
+
+    // SPI sanity check before doing anything else
+    if (!cc1101_startup_check()) {
+        std::cerr << "CC1101 startup check failed; check wiring/power.\n";
+        return 1;
+    }
 
     // Resolve MQTT connection parameters from environment
     std::string mqtt_host = get_env_or("MQTT_HOST", "localhost");
