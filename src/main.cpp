@@ -154,7 +154,7 @@ void publish_discovery(struct mosquitto *mosq) {
 
     // Power switch
     mqtt_publish(mosq, DISC_POWER,
-        R"({"name":"Power","unique_id":"diesel_heater_power",)"
+        R"({"name":"Diesel Heater Power","unique_id":"diesel_heater_power",)"
         R"("command_topic":")" + T_POWER_C +
         R"(","state_topic":")" + T_POWER_S +
         R"(","availability_topic":")" + T_AVAIL +
@@ -163,7 +163,7 @@ void publish_discovery(struct mosquitto *mosq) {
 
     // Pairing switch
     mqtt_publish(mosq, DISC_PAIR,
-        R"({"name":"Pair","unique_id":"diesel_heater_pair",)"
+        R"({"name":"Diesel Heater Pair","unique_id":"diesel_heater_pair",)"
         R"("command_topic":")" + T_PAIR_C +
         R"(","state_topic":")" + T_PAIR_S +
         R"(","availability_topic":")" + T_AVAIL +
@@ -172,7 +172,7 @@ void publish_discovery(struct mosquitto *mosq) {
 
     // Mode select
     mqtt_publish(mosq, DISC_MODE,
-        R"({"name":"Mode","unique_id":"diesel_heater_mode",)"
+        R"({"name":"Diesel Heater Mode","unique_id":"diesel_heater_mode",)"
         R"("command_topic":")" + T_MODE_C +
         R"(","state_topic":")" + T_MODE_S +
         R"(","availability_topic":")" + T_AVAIL +
@@ -182,7 +182,7 @@ void publish_discovery(struct mosquitto *mosq) {
 
     // Ambient temperature
     mqtt_publish(mosq, DISC_TEMP,
-        R"({"name":"Ambient Temperature","unique_id":"diesel_heater_ambient_temp",)"
+        R"({"name":"Diesel Heater Ambient Temperature","unique_id":"diesel_heater_ambient_temp",)"
         R"("state_topic":")" + T_TEMP +
         R"(","availability_topic":")" + T_AVAIL +
         R"(","unit_of_measurement":"°C","device_class":"temperature","state_class":"measurement",)"
@@ -191,7 +191,7 @@ void publish_discovery(struct mosquitto *mosq) {
 
     // Voltage
     mqtt_publish(mosq, DISC_VOLT,
-        R"({"name":"Voltage","unique_id":"diesel_heater_voltage",)"
+        R"({"name":"Diesel Heater Voltage","unique_id":"diesel_heater_voltage",)"
         R"("state_topic":")" + T_VOLT +
         R"(","availability_topic":")" + T_AVAIL +
         R"(","unit_of_measurement":"V","device_class":"voltage","state_class":"measurement",)"
@@ -200,7 +200,7 @@ void publish_discovery(struct mosquitto *mosq) {
 
     // Case temp
     mqtt_publish(mosq, DISC_CASE,
-        R"({"name":"Case Temperature","unique_id":"diesel_heater_case_temp",)"
+        R"({"name":"Diesel Heater Case Temperature","unique_id":"diesel_heater_case_temp",)"
         R"("state_topic":")" + T_CASE +
         R"(","availability_topic":")" + T_AVAIL +
         R"(","unit_of_measurement":"°C","device_class":"temperature","state_class":"measurement",)"
@@ -209,7 +209,7 @@ void publish_discovery(struct mosquitto *mosq) {
 
     // Pump frequency
     mqtt_publish(mosq, DISC_PFREQ,
-        R"({"name":"Pump Frequency","unique_id":"diesel_heater_pump_freq",)"
+        R"({"name":"Diesel Heater Pump Frequency","unique_id":"diesel_heater_pump_freq",)"
         R"("state_topic":")" + T_PFREQ +
         R"(","availability_topic":")" + T_AVAIL +
         R"(","unit_of_measurement":"Hz","state_class":"measurement",)"
@@ -218,7 +218,7 @@ void publish_discovery(struct mosquitto *mosq) {
 
     // Heater state (numeric)
     mqtt_publish(mosq, DISC_HSTATE,
-        R"({"name":"State Code","unique_id":"diesel_heater_state_code",)"
+        R"({"name":"Diesel Heater State Code","unique_id":"diesel_heater_state_code",)"
         R"("state_topic":")" + T_HSTATE +
         R"(","availability_topic":")" + T_AVAIL +
         R"(","icon":"mdi:numeric",)" +
@@ -226,7 +226,7 @@ void publish_discovery(struct mosquitto *mosq) {
 
     // Heater state (text)
     mqtt_publish(mosq, DISC_HTEXT,
-        R"({"name":"State","unique_id":"diesel_heater_state_text",)"
+        R"({"name":"Diesel Heater State","unique_id":"diesel_heater_state_text",)"
         R"("state_topic":")" + T_HSTATE_TXT +
         R"(","availability_topic":")" + T_AVAIL +
         R"(","icon":"mdi:information",)" +
