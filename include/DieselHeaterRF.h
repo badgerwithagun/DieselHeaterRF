@@ -6,11 +6,11 @@
 #include "pi_gpio.h"
 #include "pi_spi.h"
 
-#define HEATER_SCK_PIN   18
-#define HEATER_MISO_PIN  19
-#define HEATER_MOSI_PIN  23
-#define HEATER_SS_PIN    5
-#define HEATER_GDO2_PIN  4
+#define HEATER_SCK_PIN   23
+#define HEATER_MISO_PIN  21
+#define HEATER_MOSI_PIN  19
+#define HEATER_SS_PIN    24
+#define HEATER_GDO2_PIN  22
 
 #define HEATER_CMD_WAKEUP 0x23
 #define HEATER_CMD_MODE   0x24
