@@ -55,6 +55,9 @@ static const std::string T_HSTATE     = BASE + "state_code";
 static const std::string T_HSTATE_TXT = BASE + "state/text";
 static const std::string T_RSSI       = BASE + "rssi";
 
+// Availability
+static const std::string T_AVAIL      = BASE + "status";
+
 // Discovery topics
 static const std::string DISC_POWER   = "homeassistant/switch/diesel_heater/power/config";
 static const std::string DISC_PAIR    = "homeassistant/switch/diesel_heater/pair/config";
@@ -141,76 +144,102 @@ bool heater_is_on(uint8_t state_code) {
     }
 }
 
-// Publish HA discovery configs (with icons, device_class, etc.) [web:72]
 void publish_discovery(struct mosquitto *mosq) {
+    // Common device JSON fragment
+    const std::string device_json =
+        R"("device":{"identifiers":["diesel_heater"],)"
+        R"("name":"Diesel Heater",)"
+        R"("manufacturer":"Generic",)"
+        R"("model":"CC1101 RF Bridge"})";
+
     // Power switch
     mqtt_publish(mosq, DISC_POWER,
         R"({"name":"Power","unique_id":"diesel_heater_power",)"
         R"("command_topic":")" + T_POWER_C +
         R"(","state_topic":")" + T_POWER_S +
-        R"(","icon":"mdi:fire"})", true);
+        R"(","availability_topic":")" + T_AVAIL +
+        R"(","icon":"mdi:fire",)" +
+        device_json + "}", true);
 
     // Pairing switch
     mqtt_publish(mosq, DISC_PAIR,
         R"({"name":"Pair","unique_id":"diesel_heater_pair",)"
         R"("command_topic":")" + T_PAIR_C +
         R"(","state_topic":")" + T_PAIR_S +
-        R"(","icon":"mdi:link"})", true);
+        R"(","availability_topic":")" + T_AVAIL +
+        R"(","icon":"mdi:link",)" +
+        device_json + "}", true);
 
     // Mode select
     mqtt_publish(mosq, DISC_MODE,
         R"({"name":"Mode","unique_id":"diesel_heater_mode",)"
         R"("command_topic":")" + T_MODE_C +
         R"(","state_topic":")" + T_MODE_S +
+        R"(","availability_topic":")" + T_AVAIL +
         R"(","options":["auto","manual"],)"
-        R"("icon":"mdi:thermostat"})", true);
+        R"("icon":"mdi:thermostat",)" +
+        device_json + "}", true);
 
     // Ambient temperature
     mqtt_publish(mosq, DISC_TEMP,
         R"({"name":"Ambient Temperature","unique_id":"diesel_heater_ambient_temp",)"
         R"("state_topic":")" + T_TEMP +
+        R"(","availability_topic":")" + T_AVAIL +
         R"(","unit_of_measurement":"°C","device_class":"temperature","state_class":"measurement",)"
-        R"("icon":"mdi:thermometer"})", true);
+        R"("icon":"mdi:thermometer",)" +
+        device_json + "}", true);
 
     // Voltage
     mqtt_publish(mosq, DISC_VOLT,
         R"({"name":"Voltage","unique_id":"diesel_heater_voltage",)"
         R"("state_topic":")" + T_VOLT +
+        R"(","availability_topic":")" + T_AVAIL +
         R"(","unit_of_measurement":"V","device_class":"voltage","state_class":"measurement",)"
-        R"("icon":"mdi:current-dc"})", true);
+        R"("icon":"mdi:current-dc",)" +
+        device_json + "}", true);
 
     // Case temp
     mqtt_publish(mosq, DISC_CASE,
         R"({"name":"Case Temperature","unique_id":"diesel_heater_case_temp",)"
         R"("state_topic":")" + T_CASE +
+        R"(","availability_topic":")" + T_AVAIL +
         R"(","unit_of_measurement":"°C","device_class":"temperature","state_class":"measurement",)"
-        R"("icon":"mdi:thermometer-lines"})", true);
+        R"("icon":"mdi:thermometer-lines",)" +
+        device_json + "}", true);
 
     // Pump frequency
     mqtt_publish(mosq, DISC_PFREQ,
         R"({"name":"Pump Frequency","unique_id":"diesel_heater_pump_freq",)"
         R"("state_topic":")" + T_PFREQ +
+        R"(","availability_topic":")" + T_AVAIL +
         R"(","unit_of_measurement":"Hz","state_class":"measurement",)"
-        R"("icon":"mdi:pulse"})", true);
+        R"("icon":"mdi:pulse",)" +
+        device_json + "}", true);
 
     // Heater state (numeric)
     mqtt_publish(mosq, DISC_HSTATE,
         R"({"name":"State Code","unique_id":"diesel_heater_state_code",)"
         R"("state_topic":")" + T_HSTATE +
-        R"(","icon":"mdi:numeric"})", true);
+        R"(","availability_topic":")" + T_AVAIL +
+        R"(","icon":"mdi:numeric",)" +
+        device_json + "}", true);
 
     // Heater state (text)
     mqtt_publish(mosq, DISC_HTEXT,
         R"({"name":"State","unique_id":"diesel_heater_state_text",)"
         R"("state_topic":")" + T_HSTATE_TXT +
-        R"(","icon":"mdi:information"})", true);
+        R"(","availability_topic":")" + T_AVAIL +
+        R"(","icon":"mdi:information",)" +
+        device_json + "}", true);
 
     // RSSI
     mqtt_publish(mosq, DISC_RSSI,
         R"({"name":"RSSI","unique_id":"diesel_heater_rssi",)"
         R"("state_topic":")" + T_RSSI +
+        R"(","availability_topic":")" + T_AVAIL +
         R"(","unit_of_measurement":"dBm","device_class":"signal_strength","state_class":"measurement",)"
-        R"("icon":"mdi:signal"})", true);
+        R"("icon":"mdi:signal",)" +
+        device_json + "}", true);
 }
 
 // Handle MQTT commands → RF commands and pairing
@@ -405,6 +434,9 @@ int main() {
     std::thread t_state(state_loop, std::ref(heater), mosq);
     std::cout << "Started state listener\n" << std::flush;
 
+    // Available
+    mqtt_publish(mosq, T_AVAIL, "online", true);
+
     // MQTT loop
     while (g_running) {
         int rc = mosquitto_loop(mosq, 1000, 1);
@@ -417,6 +449,7 @@ int main() {
     std::cout << "Exited MQTT listener\n" << std::flush;
 
     t_state.join();
+    mqtt_publish(mosq, T_AVAIL, "offline", true);
     mosquitto_destroy(mosq);
     mosquitto_lib_cleanup();
     std::cout << "Shutdown complete\n" << std::flush;
