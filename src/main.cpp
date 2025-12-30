@@ -220,7 +220,7 @@ void handle_command(DieselHeaterRF &heater,
                     struct mosquitto *mosq,
                     uint32_t &heater_addr) {
 
-    std::cout << "Received command: " << topic << ", with payload: " << payload << "\n";
+    std::cout << "Received command: " << topic << ", with payload: " << payload << "\n" << std::flush;
     if (topic == T_POWER_C) {
         if (heater_addr == 0) return;
 
@@ -265,15 +265,15 @@ void handle_command(DieselHeaterRF &heater,
     } else if (topic == T_PAIR_C) {
         if (payload == "ON") {
             mqtt_publish(mosq, T_PAIR_S, "ON");
-            std::cout << "Starting pairing...\n";
+            std::cout << "Starting pairing...\n" << std::flush;
             uint32_t addr = heater.findAddress(60000);
             if (addr != 0) {
-                std::cout << "Paired heater address: 0x" << std::hex << addr << std::dec << "\n";
+                std::cout << "Paired heater address: 0x" << std::hex << addr << std::dec << "\n" << std::flush;
                 heater_addr = addr;
                 heater.setAddress(addr);
                 save_address(addr);
             } else {
-                std::cout << "Pairing timed out, no address found.\n";
+                std::cout << "Pairing timed out, no address found.\n" << std::flush;
             }
             mqtt_publish(mosq, T_PAIR_S, "OFF");
         }
@@ -336,11 +336,11 @@ void state_loop(DieselHeaterRF &heater, struct mosquitto *mosq) {
         }
         std::this_thread::sleep_for(std::chrono::seconds(5));
     }
-    std::cout << "Exited state listener\n";
+    std::cout << "Exited state listener\n" << std::flush;
 }
 
 void handle_signal(int) {
-    std::cout << "Exit request received\n";
+    std::cout << "Exit request received\n" << std::flush;
     g_running = false;
 }
 
@@ -351,24 +351,24 @@ int main() {
     // Resolve MQTT connection parameters from environment
     std::string mqtt_host = get_env_or("MQTT_HOST", "localhost");
     int mqtt_port         = get_env_int_or("MQTT_PORT", 1883);
-    std::cout << "Using MQTT host " << mqtt_host << ":" << std::to_string(mqtt_port) << "\n";
+    std::cout << "Using MQTT host " << mqtt_host << ":" << std::to_string(mqtt_port) << "\n" << std::flush;
 
     DieselHeaterRF heater;
     heater.begin();
-    std::cout << "Radio initialised\n";
+    std::cout << "Radio initialised\n" << std::flush;
 
     uint32_t addr = load_address();
     if (addr != 0) {
-        std::cout << "Using heater address: 0x" << std::hex << addr << std::dec << "\n";
+        std::cout << "Using heater address: 0x" << std::hex << addr << std::dec << "\n" << std::flush;
         heater.setAddress(addr);
     } else {
-        std::cout << "No saved address; use MQTT pairing switch.\n";
+        std::cout << "No saved address; use MQTT pairing switch.\n" << std::flush;
     }
 
     mosquitto_lib_init();
     struct mosquitto *mosq = mosquitto_new(CLIENT_ID, true, &heater);
     if (!mosq) {
-        std::cerr << "mosquitto_new failed\n";
+        std::cerr << "mosquitto_new failed\n" << std::flush;
         return 1;
     }
 
@@ -379,12 +379,12 @@ int main() {
     mosquitto_message_callback_set(mosq, on_message);
 
     if (mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, 60) != MOSQ_ERR_SUCCESS) {
-        std::cerr << "Failed to connect to MQTT\n";
+        std::cerr << "Failed to connect to MQTT\n" << std::flush;
         mosquitto_destroy(mosq);
         mosquitto_lib_cleanup();
         return 1;
     }
-    std::cout << "MQTT connected\n";
+    std::cout << "MQTT connected\n" << std::flush;
 
     // Subscribe to all command topics
     mosquitto_subscribe(mosq, nullptr, T_POWER_C.c_str(), 0);
@@ -395,30 +395,30 @@ int main() {
     mosquitto_subscribe(mosq, nullptr, T_CMD_POWER.c_str(), 0);
     mosquitto_subscribe(mosq, nullptr, T_CMD_UP.c_str(), 0);
     mosquitto_subscribe(mosq, nullptr, T_CMD_DOWN.c_str(), 0);
-    std::cout << "Subscribed to topics\n";
+    std::cout << "Subscribed to topics\n" << std::flush;
 
     // Announce discovery
     publish_discovery(mosq);
-    std::cout << "Published HA discovery topics\n";
+    std::cout << "Published HA discovery topics\n" << std::flush;
 
     // Start state loop
     std::thread t_state(state_loop, std::ref(heater), mosq);
-    std::cout << "Started state listener\n";
+    std::cout << "Started state listener\n" << std::flush;
 
     // MQTT loop
     while (g_running) {
         int rc = mosquitto_loop(mosq, 1000, 1);
         if (rc != MOSQ_ERR_SUCCESS) {
-            std::cerr << "MQTT loop error (" << rc << "), reconnecting...\n";
+            std::cerr << "MQTT loop error (" << rc << "), reconnecting...\n" << std::flush;
             std::this_thread::sleep_for(std::chrono::seconds(2));
             mosquitto_reconnect(mosq);
         }
     }
-    std::cout << "Exited MQTT listener\n";
+    std::cout << "Exited MQTT listener\n" << std::flush;
 
     t_state.join();
     mosquitto_destroy(mosq);
     mosquitto_lib_cleanup();
-    std::cout << "Shutdown complete\n";
+    std::cout << "Shutdown complete\n" << std::flush;
     return 0;
 }
