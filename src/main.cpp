@@ -220,6 +220,7 @@ void handle_command(DieselHeaterRF &heater,
                     struct mosquitto *mosq,
                     uint32_t &heater_addr) {
 
+    std::cout << "Received command: " << topic << ", with payload: " << payload << "\n";
     if (topic == T_POWER_C) {
         if (heater_addr == 0) return;
 
@@ -335,9 +336,11 @@ void state_loop(DieselHeaterRF &heater, struct mosquitto *mosq) {
         }
         std::this_thread::sleep_for(std::chrono::seconds(5));
     }
+    std::cout << "Exited state listener\n";
 }
 
 void handle_signal(int) {
+    std::cout << "Exit request received\n";
     g_running = false;
 }
 
@@ -348,13 +351,15 @@ int main() {
     // Resolve MQTT connection parameters from environment
     std::string mqtt_host = get_env_or("MQTT_HOST", "localhost");
     int mqtt_port         = get_env_int_or("MQTT_PORT", 1883);
+    std::cout << "Using MQTT host " << mqtt_host << ":" << std::to_string(mqtt_port) << "\n";
 
     DieselHeaterRF heater;
     heater.begin();
+    std::cout << "Radio initialised\n";
 
     uint32_t addr = load_address();
     if (addr != 0) {
-        std::cout << "Loaded heater address: 0x" << std::hex << addr << std::dec << "\n";
+        std::cout << "Using heater address: 0x" << std::hex << addr << std::dec << "\n";
         heater.setAddress(addr);
     } else {
         std::cout << "No saved address; use MQTT pairing switch.\n";
@@ -379,6 +384,7 @@ int main() {
         mosquitto_lib_cleanup();
         return 1;
     }
+    std::cout << "MQTT connected\n";
 
     // Subscribe to all command topics
     mosquitto_subscribe(mosq, nullptr, T_POWER_C.c_str(), 0);
@@ -389,12 +395,15 @@ int main() {
     mosquitto_subscribe(mosq, nullptr, T_CMD_POWER.c_str(), 0);
     mosquitto_subscribe(mosq, nullptr, T_CMD_UP.c_str(), 0);
     mosquitto_subscribe(mosq, nullptr, T_CMD_DOWN.c_str(), 0);
+    std::cout << "Subscribed to topics\n";
 
     // Announce discovery
     publish_discovery(mosq);
+    std::cout << "Published HA discovery topics\n";
 
     // Start state loop
     std::thread t_state(state_loop, std::ref(heater), mosq);
+    std::cout << "Started state listener\n";
 
     // MQTT loop
     while (g_running) {
@@ -405,9 +414,11 @@ int main() {
             mosquitto_reconnect(mosq);
         }
     }
+    std::cout << "Exited MQTT listener\n";
 
     t_state.join();
     mosquitto_destroy(mosq);
     mosquitto_lib_cleanup();
+    std::cout << "Shutdown complete\n";
     return 0;
 }
