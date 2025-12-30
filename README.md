@@ -93,6 +93,6 @@ docker run -d \
   --privileged \
   -e MQTT_HOST=192.168.180.30 \
   -e MQTT_PORT=1883 \
-  -v ./data:/data \
+  -v ./diesel-heater-rf-data:/data \
   diesel-heater-rf
 ```

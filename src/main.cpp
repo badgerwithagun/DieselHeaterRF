@@ -16,7 +16,8 @@
 #include "pi_spi.h"
 
 // Global SPI instance used by DieselHeaterRF
-PiSPI g_spi("/dev/spidev0.0", 4000000);
+// PiSPI g_spi("/dev/spidev0.0", 4000000);
+PiSPI g_spi("/dev/spidev0.0", 250000);
 
 static std::atomic<bool> g_running{true};
 static std::atomic<uint8_t> g_last_state_code{HEATER_STATE_OFF};
