@@ -49,18 +49,18 @@ class DieselHeaterRF
 public:
 
     DieselHeaterRF() {
-            _pinSck = HEATER_SCK_PIN;
+        _pinSck  = HEATER_SCK_PIN;
         _pinMiso = HEATER_MISO_PIN;
         _pinMosi = HEATER_MOSI_PIN;
-            _pinSs = HEATER_SS_PIN;
+        _pinSs   = HEATER_SS_PIN;
         _pinGdo2 = HEATER_GDO2_PIN;
     }
 
     DieselHeaterRF(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t ss, uint8_t gdo2) {
-            _pinSck = sck;
+        _pinSck  = sck;
         _pinMiso = miso;
         _pinMosi = mosi;
-            _pinSs = ss;
+        _pinSs   = ss;
         _pinGdo2 = gdo2;
     }
 
@@ -84,14 +84,14 @@ public:
 
 private:
 
-    uint8_t _pinSck;
-    uint8_t _pinMiso;
-    uint8_t _pinMosi;
-    uint8_t _pinSs;
-    uint8_t _pinGdo2;
+    uint8_t  _pinSck;
+    uint8_t  _pinMiso;
+    uint8_t  _pinMosi;
+    uint8_t  _pinSs;
+    uint8_t  _pinGdo2;
 
     uint32_t _heaterAddr = 0;
-        uint8_t _packetSeq = 0;
+    uint8_t  _packetSeq  = 0;
 
     void initRadio();
 
@@ -102,16 +102,17 @@ private:
     void rxFlush();
     void rxEnable();
 
-        uint8_t writeReg(uint8_t addr, uint8_t val);
-        void writeBurst(uint8_t addr, uint8_t len, char *bytes);
-        void writeStrobe(uint8_t addr);
-
-    void spiStart(void);
-    void spiEnd(void);
-
-        bool receivePacket(char *bytes, uint16_t timeout);
+    bool     receivePacket(char *bytes, uint16_t timeout);
     uint32_t parseAddress(char *buf);
-
     uint16_t crc16_2(char *buf, int len);
-    
+
+    // CC1101 SPI primitives — each is a single, atomic SPI transaction.
+    void    writeConfigReg(uint8_t addr, uint8_t val);
+    uint8_t readConfigReg(uint8_t addr);
+    uint8_t readStatusReg(uint8_t addr);
+    void    strobe(uint8_t cmd);
+    void    writeBurstReg(uint8_t addr, const uint8_t *data, uint8_t len);
+
+    // Core: assert CS, wait for CHIP_RDYn (MISO low), transfer, deassert CS.
+    void spiTransaction(const uint8_t *tx, uint8_t *rx, size_t len);
 };

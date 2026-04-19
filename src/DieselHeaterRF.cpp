@@ -1,21 +1,12 @@
 /*
  * DieselHeaterRF.cpp
  * Copyright (c) 2020 Jarno Kyttälä
- * 
- * ---------------------------------
- * 
- * Simple class for Arduino to control an inexpensive Chinese diesel 
- * heater through 433 MHz RF by using a TI CC1101 transceiver.
- * Replicates the protocol used by the four button "red LCD remote" with
- * an OLED screen, and should probably work if your heater supports this 
- * type of remote controller.
- * 
- * Happy hacking!
- * 
+ *
+ * Simple class to control an inexpensive Chinese diesel heater through
+ * 433 MHz RF using a TI CC1101 transceiver.  Replicates the protocol
+ * used by the four-button "red LCD remote" with an OLED screen.
  */
 
-// #include <Arduino.h>
-// #include <SPI.h>
 #include "DieselHeaterRF.h"
 
 void DieselHeaterRF::begin() {
@@ -109,7 +100,7 @@ void DieselHeaterRF::sendCommand(uint8_t cmd, uint32_t addr, uint8_t numTransmit
   for (int i = 0; i < numTransmits; i++) {
     txBurst(10, buf);
     t = millis();
-    while (writeReg(0xF5, 0xFF) != 0x01) { delay(1); if (millis() - t > 100) { return; } } // Wait for idle state
+    while (readStatusReg(0x35) != 0x01) { delay(1); if (millis() - t > 100) { return; } } // Wait for idle state
   }
 
 }
@@ -154,7 +145,7 @@ bool DieselHeaterRF::receivePacket(char *bytes, uint16_t timeout) {
     }
 
     // Get number of bytes in RX FIFO
-    rxLen = writeReg(0xFB, 0xFF);
+    rxLen = readStatusReg(0x3B); // RXBYTES
     
     if (rxLen == 24) break;
 
@@ -179,121 +170,135 @@ bool DieselHeaterRF::receivePacket(char *bytes, uint16_t timeout) {
 
 void DieselHeaterRF::initRadio() {
 
-  writeStrobe(0x30); // SRES
+  strobe(0x30); // SRES
 
   delay(100);
 
-  writeReg(0x00, 0x07); // IOCFG2
-  writeReg(0x02, 0x06); // IOCFG0
-  writeReg(0x03, 0x47); // FIFOTHR
-  writeReg(0x07, 0x04); // PKTCTRL1
-  writeReg(0x08, 0x05); // PKTCTRL0
-  writeReg(0x0A, 0x00); // CHANNR
-  writeReg(0x0B, 0x06); // FSCTRL1
-  writeReg(0x0C, 0x00); // FSCTRL0
-  writeReg(0x0D, 0x10); // FREQ2
-  writeReg(0x0E, 0xB1); // FREQ1
-  writeReg(0x0F, 0x3B); // FREQ0
-  writeReg(0x10, 0xF8); // MDMCFG4
-  writeReg(0x11, 0x93); // MDMCFG3
-  writeReg(0x12, 0x13); // MDMCFG2
-  writeReg(0x13, 0x22); // MDMCFG1
-  writeReg(0x14, 0xF8); // MDMCFG0
-  writeReg(0x15, 0x26); // DEVIATN
-  writeReg(0x17, 0x30); // MCSM1
-  writeReg(0x18, 0x18); // MCSM0
-  writeReg(0x19, 0x16); // FOCCFG
-  writeReg(0x1A, 0x6C); // BSCFG
-  writeReg(0x1B, 0x03); // AGCTRL2
-  writeReg(0x1C, 0x40); // AGCTRL1
-  writeReg(0x1D, 0x91); // AGCTRL0
-  writeReg(0x20, 0xFB); // WORCTRL
-  writeReg(0x21, 0x56); // FREND1
-  writeReg(0x22, 0x17); // FREND0
-  writeReg(0x23, 0xE9); // FSCAL3
-  writeReg(0x24, 0x2A); // FSCAL2
-  writeReg(0x25, 0x00); // FSCAL1
-  writeReg(0x26, 0x1F); // FSCAL0
-  writeReg(0x2C, 0x81); // TEST2
-  writeReg(0x2D, 0x35); // TEST1
-  writeReg(0x2E, 0x09); // TEST0
-  writeReg(0x09, 0x00); // ADDR
-  writeReg(0x04, 0x7E); // SYNC1
-  writeReg(0x05, 0x3C); // SYNC0
+  writeConfigReg(0x00, 0x07); // IOCFG2
+  writeConfigReg(0x02, 0x06); // IOCFG0
+  writeConfigReg(0x03, 0x47); // FIFOTHR
+  writeConfigReg(0x07, 0x04); // PKTCTRL1
+  writeConfigReg(0x08, 0x05); // PKTCTRL0
+  writeConfigReg(0x0A, 0x00); // CHANNR
+  writeConfigReg(0x0B, 0x06); // FSCTRL1
+  writeConfigReg(0x0C, 0x00); // FSCTRL0
+  writeConfigReg(0x0D, 0x10); // FREQ2
+  writeConfigReg(0x0E, 0xB1); // FREQ1
+  writeConfigReg(0x0F, 0x3B); // FREQ0
+  writeConfigReg(0x10, 0xF8); // MDMCFG4
+  writeConfigReg(0x11, 0x93); // MDMCFG3
+  writeConfigReg(0x12, 0x13); // MDMCFG2
+  writeConfigReg(0x13, 0x22); // MDMCFG1
+  writeConfigReg(0x14, 0xF8); // MDMCFG0
+  writeConfigReg(0x15, 0x26); // DEVIATN
+  writeConfigReg(0x17, 0x30); // MCSM1
+  writeConfigReg(0x18, 0x18); // MCSM0
+  writeConfigReg(0x19, 0x16); // FOCCFG
+  writeConfigReg(0x1A, 0x6C); // BSCFG
+  writeConfigReg(0x1B, 0x03); // AGCTRL2
+  writeConfigReg(0x1C, 0x40); // AGCTRL1
+  writeConfigReg(0x1D, 0x91); // AGCTRL0
+  writeConfigReg(0x20, 0xFB); // WORCTRL
+  writeConfigReg(0x21, 0x56); // FREND1
+  writeConfigReg(0x22, 0x17); // FREND0
+  writeConfigReg(0x23, 0xE9); // FSCAL3
+  writeConfigReg(0x24, 0x2A); // FSCAL2
+  writeConfigReg(0x25, 0x00); // FSCAL1
+  writeConfigReg(0x26, 0x1F); // FSCAL0
+  writeConfigReg(0x2C, 0x81); // TEST2
+  writeConfigReg(0x2D, 0x35); // TEST1
+  writeConfigReg(0x2E, 0x09); // TEST0
+  writeConfigReg(0x09, 0x00); // ADDR
+  writeConfigReg(0x04, 0x7E); // SYNC1
+  writeConfigReg(0x05, 0x3C); // SYNC0
 
-  char patable[8] = {0x00, 0x12, 0x0E, 0x34, 0x60, 0xC5, 0xC1, 0xC0};
-  writeBurst(0x7E, 8, patable); // PATABLE
+  static const uint8_t patable[8] = {0x00, 0x12, 0x0E, 0x34, 0x60, 0xC5, 0xC1, 0xC0};
+  writeBurstReg(0x3E, patable, 8); // PATABLE
 
-  writeStrobe(0x31); // SFSTXON  
-  writeStrobe(0x36); // SIDLE  
-  writeStrobe(0x3B); // SFTX  
-  writeStrobe(0x36); // SIDLE  
-  writeStrobe(0x3A); // SFRX  
+  strobe(0x31); // SFSTXON
+  strobe(0x36); // SIDLE
+  strobe(0x3B); // SFTX
+  strobe(0x36); // SIDLE
+  strobe(0x3A); // SFRX
 
   delay(136);
-  
+
 }
 
 void DieselHeaterRF::txBurst(uint8_t len, char *bytes) {
     txFlush();
-    //cc1101_writeReg(0x3F, len);
-    writeBurst(0x7F, len, bytes);
-    writeStrobe(0x35); // STX
+    writeBurstReg(0x3F, reinterpret_cast<const uint8_t *>(bytes), len); // TXFIFO burst write
+    strobe(0x35); // STX
 }
 
 void DieselHeaterRF::txFlush() {
-  writeStrobe(0x36); // SIDLE
-  writeStrobe(0x3B); // SFTX
-  delay(16); // Needed to prevent TX underflow if bursting right after flushing
+    strobe(0x36); // SIDLE
+    strobe(0x3B); // SFTX
+    delay(16); // Prevent TX underflow when bursting immediately after flush
 }
 
 void DieselHeaterRF::rx(uint8_t len, char *bytes) {
-  for (int i = 0; i < (int)len; i++) {
-    bytes[i] = writeReg(0xBF, 0xFF);
-  }
+    for (int i = 0; i < (int)len; i++)
+        bytes[i] = static_cast<char>(readConfigReg(0x3F)); // RXFIFO single read
 }
 
 void DieselHeaterRF::rxFlush() {
-  writeStrobe(0x36); // SIDLE
-  (void)writeReg(0xBF, 0xFF); // Dummy read to de-asset GDO2
-  writeStrobe(0x3A); // SFRX
-  delay(16);
+    strobe(0x36); // SIDLE
+    (void)readConfigReg(0x3F); // Dummy RXFIFO read to de-assert GDO2
+    strobe(0x3A); // SFRX
+    delay(16);
 }
 
 void DieselHeaterRF::rxEnable() {
-  writeStrobe(0x34); // SRX  
+    strobe(0x34); // SRX
 }
 
-uint8_t DieselHeaterRF::writeReg(uint8_t addr, uint8_t val) {
-  spiStart();
-  spiTransfer(addr);
-  uint8_t tmp = spiTransfer(val);
-  spiEnd();
-  return tmp;
+// ---------------------------------------------------------------------------
+// CC1101 SPI primitives
+// ---------------------------------------------------------------------------
+
+void DieselHeaterRF::spiTransaction(const uint8_t *tx, uint8_t *rx, size_t len) {
+    digitalWritePi(_pinSs, PI_LOW);
+    while (digitalReadPi(_pinMiso)) {} // Wait for CHIP_RDYn
+    g_spi.transfer_buf(tx, rx, len);
+    digitalWritePi(_pinSs, PI_HIGH);
 }
 
-void DieselHeaterRF::writeBurst(uint8_t addr, uint8_t len, char *bytes) {
-  spiStart();
-  spiTransfer(addr);
-  for (int i = 0; i < (int)len; i++) {
-    spiTransfer(uint8_t(bytes[i]));
-  }
-  spiEnd();
+void DieselHeaterRF::writeConfigReg(uint8_t addr, uint8_t val) {
+    uint8_t tx[2] = { static_cast<uint8_t>(addr & 0x3F), val };
+    uint8_t rx[2];
+    spiTransaction(tx, rx, 2);
 }
 
-void DieselHeaterRF::writeStrobe(uint8_t addr) {
-  spiStart();
-  spiTransfer(addr);
-  spiEnd();
+uint8_t DieselHeaterRF::readConfigReg(uint8_t addr) {
+    uint8_t tx[2] = { static_cast<uint8_t>(0x80 | (addr & 0x3F)), 0x00 };
+    uint8_t rx[2] = {};
+    spiTransaction(tx, rx, 2);
+    return rx[1];
 }
 
-void DieselHeaterRF::spiStart() {
-  digitalWritePi(_pinSs, PI_LOW);
-  while (digitalReadPi(_pinMiso)) { /* wait until MISO goes low */ }
+uint8_t DieselHeaterRF::readStatusReg(uint8_t addr) {
+    // Status registers require the burst bit set (0xC0) even for single reads.
+    uint8_t tx[2] = { static_cast<uint8_t>(0xC0 | (addr & 0x3F)), 0x00 };
+    uint8_t rx[2] = {};
+    spiTransaction(tx, rx, 2);
+    return rx[1];
 }
 
-void DieselHeaterRF::spiEnd() {
-  digitalWritePi(_pinSs, PI_HIGH);
+void DieselHeaterRF::strobe(uint8_t cmd) {
+    uint8_t tx[1] = { cmd };
+    uint8_t rx[1];
+    spiTransaction(tx, rx, 1);
+}
+
+void DieselHeaterRF::writeBurstReg(uint8_t addr, const uint8_t *data, uint8_t len) {
+    // Max burst in this application: TXFIFO (10 bytes) or PATABLE (8 bytes).
+    uint8_t tx[64];
+    uint8_t rx[64];
+    tx[0] = 0x40 | (addr & 0x3F); // burst write header
+    for (uint8_t i = 0; i < len; i++)
+        tx[i + 1] = data[i];
+    spiTransaction(tx, rx, static_cast<size_t>(len) + 1);
 }
 
 /*
