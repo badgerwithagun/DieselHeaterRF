@@ -21,6 +21,7 @@ PiSPI g_spi("/dev/spidev0.0", 250000);
 
 static std::atomic<bool> g_running{true};
 static std::atomic<uint8_t> g_last_state_code{HEATER_STATE_OFF};
+static std::atomic<bool> g_pairing{false};
 
 // MQTT / HA configuration
 static const char *MQTT_USER      = nullptr;          // or "user"
@@ -367,19 +368,22 @@ void handle_command(DieselHeaterRF &heater,
             mqtt_publish(mosq, T_MODE_S, "manual");
         }
     } else if (topic == T_PAIR_C) {
-        if (payload == "ON") {
+        if (payload == "ON" && !g_pairing.exchange(true)) {
             mqtt_publish(mosq, T_PAIR_S, "ON");
             std::cout << "Starting pairing...\n" << std::flush;
-            uint32_t addr = heater.findAddress(60000);
-            if (addr != 0) {
-                std::cout << "Paired heater address: 0x" << std::hex << addr << std::dec << "\n" << std::flush;
-                heater_addr = addr;
-                heater.setAddress(addr);
-                save_address(addr);
-            } else {
-                std::cout << "Pairing timed out, no address found.\n" << std::flush;
-            }
-            mqtt_publish(mosq, T_PAIR_S, "OFF");
+            std::thread([&heater, mosq, &heater_addr]() {
+                uint32_t addr = heater.findAddress(60000);
+                if (addr != 0) {
+                    std::cout << "Paired heater address: 0x" << std::hex << addr << std::dec << "\n" << std::flush;
+                    heater_addr = addr;
+                    heater.setAddress(addr);
+                    save_address(addr);
+                } else {
+                    std::cout << "Pairing timed out, no address found.\n" << std::flush;
+                }
+                mqtt_publish(mosq, T_PAIR_S, "OFF");
+                g_pairing = false;
+            }).detach();
         }
     }
 }
