@@ -10,9 +10,11 @@
 
 // Simple singleton-style SPI instance.
 //
-// CS is managed manually via GPIO (SPI_NO_CS prevents the driver from
-// also toggling the hardware CE pin, which would otherwise fight the
-// manual GPIO control and break multi-byte CC1101 transactions).
+// CS is managed manually via GPIO in the CC1101 primitives so that the
+// CHIP_RDYn (MISO) signal can be sampled before the first clock edge.
+// SPI_MODE_0 (without SPI_NO_CS) is used so the hardware CE0 line also
+// tracks CS — this is harmless because each transfer_buf call is one
+// atomic SPI_IOC_MESSAGE covering the full CC1101 transaction.
 class PiSPI {
     int fd_;
     uint32_t speed_;
@@ -25,7 +27,7 @@ public:
         if (fd_ < 0)
             throw std::runtime_error("open spidev failed");
 
-        uint8_t mode = SPI_MODE_0 | SPI_NO_CS;
+        uint8_t mode = SPI_MODE_0;
         uint8_t bits = 8;
         if (ioctl(fd_, SPI_IOC_WR_MODE, &mode) < 0)
             throw std::runtime_error("SPI_IOC_WR_MODE failed");
