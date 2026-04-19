@@ -49,6 +49,20 @@ public:
             throw std::runtime_error("SPI transfer failed");
         return rx;
     }
+
+void transfer2(const uint8_t *tx, uint8_t *rx, size_t len) {
+    struct spi_ioc_transfer tr;
+    std::memset(&tr, 0, sizeof(tr));
+    tr.tx_buf = (unsigned long)tx;
+    tr.rx_buf = (unsigned long)rx;
+    tr.len = len;
+    tr.speed_hz = speed_;
+    tr.bits_per_word = 8;
+    tr.delay_usecs = 0;
+
+    if (ioctl(fd_, SPI_IOC_MESSAGE(1), &tr) < 1)
+        throw std::runtime_error("SPI transfer failed");
+}
 };
 
 // Global SPI instance and helper, used by DieselHeaterRF.cpp

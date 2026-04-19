@@ -73,14 +73,61 @@ static const std::string DISC_RSSI    = "homeassistant/sensor/diesel_heater/rssi
 
 // ---- CC1101 SPI sanity checks ----
 
+uint8_t cc1101_read_config_reg(uint8_t addr) {
+    uint8_t tx[2] = { static_cast<uint8_t>(0x80 | (addr & 0x3F)), 0x00 };
+    uint8_t rx[2] = { 0, 0 };
+
+    digitalWritePi(HEATER_SS_PIN, PI_LOW);
+    g_spi.transfer2(tx, rx, 2);
+    digitalWritePi(HEATER_SS_PIN, PI_HIGH);
+
+    return rx[1];
+}
+
+uint8_t cc1101_read_status_reg(uint8_t addr) {
+    uint8_t tx[2] = { static_cast<uint8_t>(0xC0 | (addr & 0x3F)), 0x00 };
+    uint8_t rx[2] = { 0, 0 };
+
+    digitalWritePi(HEATER_SS_PIN, PI_LOW);
+    g_spi.transfer2(tx, rx, 2);
+    digitalWritePi(HEATER_SS_PIN, PI_HIGH);
+
+    return rx[1];
+}
+
 uint8_t cc1101_read_reg(uint8_t addr) {
+    uint8_t tx[2];
+    uint8_t rx[2];
+
+    tx[0] = 0x80 | (addr & 0x3F);   // single-byte read
+    tx[1] = 0x00;
+
+    digitalWritePi(HEATER_SS_PIN, PI_LOW);
+
+    g_spi.transfer2(tx, rx, 2);     // add this helper to PiSPI
+
+    digitalWritePi(HEATER_SS_PIN, PI_HIGH);
+
+    return rx[1];                   // rx[0] is status byte, rx[1] is register value
+}
+
+void cc1101_write_reg(uint8_t addr, uint8_t value) {
+    uint8_t tx[2] = { static_cast<uint8_t>(addr & 0x3F), value };
+    uint8_t rx[2] = { 0, 0 };
+
+    digitalWritePi(HEATER_SS_PIN, PI_LOW);
+    g_spi.transfer2(tx, rx, 2);
+    digitalWritePi(HEATER_SS_PIN, PI_HIGH);
+}
+
+uint8_t cc1101_read_reg_old(uint8_t addr) {
     // Single-byte read: 0x80 | addr [web:87]
     uint8_t header = 0x80 | (addr & 0x3F);
 
     // Use the same CSn and MISO pins as DieselHeaterRF
     digitalWritePi(HEATER_SS_PIN, PI_LOW);      // CSn low
     // Optional: wait for MISO to go low to indicate ready
-    // while (digitalReadPi(HEATER_MISO_PIN)) {}
+    while (digitalReadPi(HEATER_MISO_PIN)) {}
 
     uint8_t val;
     (void)g_spi.transfer(header);
@@ -104,17 +151,27 @@ bool cc1101_startup_check() {
     // Ensure CS and MISO directions are set (matches your DieselHeaterRF pins)
     pinModePi(HEATER_SS_PIN,   PI_OUTPUT);
     pinModePi(HEATER_MISO_PIN, PI_INPUT);
-
     digitalWritePi(HEATER_SS_PIN, PI_HIGH);
-
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
     try {
         cc1101_sres();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        uint8_t partnum = cc1101_read_reg(0x30);  // PARTNUM [web:87]
-        uint8_t version = cc1101_read_reg(0x31);  // VERSION [web:87]
+    //    uint8_t partnum = cc1101_read_reg(0x30);  // PARTNUM
+    //    uint8_t version = cc1101_read_reg(0x31);  // VERSION
+//	uint8_t freq2 = cc1101_read_reg(0x0d);  // FREQ2
+
+uint8_t partnum = cc1101_read_status_reg(0x30);
+uint8_t version = cc1101_read_status_reg(0x31);
+uint8_t freq2   = cc1101_read_config_reg(0x0D);
+cc1101_write_reg(0x0D, 0x10);
+uint8_t after = cc1101_read_config_reg(0x0D);
 
         std::cout << "CC1101 PARTNUM=0x" << std::hex << int(partnum)
-                  << " VERSION=0x" << int(version) << std::dec << "\n";
+                  << " VERSION=0x" << std::hex << int(version)
+                  << " FREQ2-before=0x" << std::hex << int(freq2)
+                  << " FREQ2=after0x" << std::hex << int(after)
+                  << std::dec << "\n";
 
         // Very rough sanity: reject all-0xFF or all-0x00
         if ((partnum == 0xFF && version == 0xFF) ||
