@@ -415,6 +415,11 @@ void on_message(struct mosquitto *mosq, void *userdata,
 void state_loop(DieselHeaterRF &heater, struct mosquitto *mosq) {
     heater_state_t st{};
     while (g_running) {
+        if (g_pairing.load(std::memory_order_relaxed)) {
+            // Yield the CC1101 RX FIFO to the pairing thread while pairing is active.
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            continue;
+        }
         if (heater.getState(&st, 1000)) {
             // remember last state code
             g_last_state_code.store(st.state, std::memory_order_relaxed);
